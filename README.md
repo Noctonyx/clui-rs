@@ -1,4 +1,10 @@
-# clui-rs
+# CLUI 
+
+A retained mode UI for gamedev in Rust
+
+This crate contains several layers:
+* `clui-base`: Base rectangle/text handling and vertex data generation. 
+* `clui-layout`: API for layout changes flexbox style.
 
 ## License
 
