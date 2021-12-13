@@ -1,58 +1,27 @@
 use log::LevelFilter;
 use std::path::Path;
-use std::sync::Arc;
 
 use rafx_api::{
-    RafxApi, RafxBufferDef, RafxCommandBufferDef, RafxCommandPoolDef, RafxDescriptorElements,
-    RafxDescriptorKey, RafxDescriptorSetArrayDef, RafxDescriptorUpdate, RafxDeviceContext,
-    RafxError, RafxFormat, RafxGlUniformMember, RafxGraphicsPipelineDef, RafxPipeline,
-    RafxPrimitiveTopology, RafxQueue, RafxQueueType, RafxResourceType, RafxResult,
-    RafxRootSignature, RafxRootSignatureDef, RafxSampleCount, RafxShader, RafxShaderPackage,
-    RafxShaderPackageVulkan, RafxShaderResource, RafxShaderStageDef, RafxShaderStageFlags,
-    RafxShaderStageReflection, RafxSwapchain, RafxSwapchainColorSpace, RafxSwapchainDef,
-    RafxSwapchainHelper, RafxVertexAttributeRate, RafxVertexLayout, RafxVertexLayoutAttribute,
-    RafxVertexLayoutBuffer,
+    RafxApi, RafxBuffer, RafxBufferDef, RafxColorClearValue, RafxColorRenderTargetBinding,
+    RafxCommandBuffer, RafxCommandBufferDef, RafxCommandPool, RafxCommandPoolDef,
+    RafxDescriptorElements, RafxDescriptorKey, RafxDescriptorSetArrayDef, RafxDescriptorUpdate,
+    RafxDeviceContext, RafxError, RafxFormat, RafxGlUniformMember, RafxGraphicsPipelineDef,
+    RafxLoadOp, RafxPipeline, RafxPrimitiveTopology, RafxQueue, RafxQueueType, RafxResourceState,
+    RafxResourceType, RafxResult, RafxRootSignature, RafxRootSignatureDef, RafxSampleCount,
+    RafxShader, RafxShaderPackage, RafxShaderPackageVulkan, RafxShaderResource, RafxShaderStageDef,
+    RafxShaderStageFlags, RafxShaderStageReflection, RafxStoreOp, RafxSwapchainColorSpace,
+    RafxSwapchainDef, RafxSwapchainHelper, RafxTextureBarrier, RafxVertexAttributeRate,
+    RafxVertexLayout, RafxVertexLayoutAttribute, RafxVertexLayoutBuffer,
 };
-/*
-use rafx_framework::render_features::RenderPhase;
-use rafx_framework::render_features::RenderPhaseIndex;
-use rafx_framework::render_features::{RenderFeatureSubmitNode, RenderRegistryBuilder};
-use rafx_framework::render_features::{RenderJobWriteContext, SubmitNodeBlocks};
-use rafx_framework::{CookedShaderPackage, FixedFunctionState, ResourceManager, VertexDataLayout};
-
- */
-use structopt::StructOpt;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
-/*
-rafx_framework::declare_render_phase!(
-    OpaqueRenderPhase,
-    OPAQUE_RENDER_PHASE_INDEX,
-    opaque_render_phase_sort_submit_nodes
-);
-
-fn opaque_render_phase_sort_submit_nodes(submit_nodes: &mut Vec<RenderFeatureSubmitNode>) {
-    // Sort by feature
-    log::trace!(
-        "Sort phase {}",
-        OpaqueRenderPhase::render_phase_debug_name()
-    );
-    submit_nodes.sort_unstable_by(|a, b| a.feature_index().cmp(&b.feature_index()));
-}
-
-
- */
-#[derive(StructOpt)]
-pub struct DemoArgs {}
 
 #[derive(Default, Clone, Copy)]
 struct PositionColorVertex {
     position: [f32; 2],
     color: [f32; 3],
 }
-
-struct DemoMaterial {}
 
 struct DemoGraphicsContext {
     device_context: RafxDeviceContext,
@@ -62,6 +31,10 @@ struct DemoGraphicsContext {
     root_signature: RafxRootSignature,
     vertex_layout: RafxVertexLayout,
     pipeline: RafxPipeline,
+    command_pools: Vec<RafxCommandPool>,
+    command_buffers: Vec<RafxCommandBuffer>,
+    vertex_buffers: Vec<Option<RafxBuffer>>,
+    uniform_buffers: Vec<Option<RafxBuffer>>,
 }
 
 struct DemoApp {
@@ -70,7 +43,7 @@ struct DemoApp {
 }
 
 impl DemoApp {
-    fn init(args: &DemoArgs, window: &Window) -> Result<Self, RafxError> {
+    fn init(window: &Window) -> Result<Self, RafxError> {
         let api = unsafe { RafxApi::new(window, &Default::default())? };
 
         let graphics = create_graphics_context(&api, window)?;
@@ -81,7 +54,72 @@ impl DemoApp {
         })
     }
 
-    fn update(&self, window: &Window) -> Result<winit::event_loop::ControlFlow, ()> {
+    fn update(&mut self, window: &Window) -> Result<winit::event_loop::ControlFlow, RafxError> {
+        let mut ctx = self.graphics.as_mut().unwrap();
+        //
+        // Acquire swapchain image
+        //
+        let physical_size = window.inner_size();
+        let presentable_frame = ctx.swapchain_helper.acquire_next_image(
+            physical_size.width,
+            physical_size.height,
+            None,
+        )?;
+        let swapchain_texture = presentable_frame.swapchain_texture();
+
+        let cmd_pool = &mut ctx.command_pools[presentable_frame.rotating_frame_index()];
+        let cmd_buffer = &ctx.command_buffers[presentable_frame.rotating_frame_index()];
+        let vertex_buffer = &ctx.vertex_buffers[presentable_frame.rotating_frame_index()];
+        let uniform_buffer = &ctx.uniform_buffers[presentable_frame.rotating_frame_index()];
+
+        cmd_pool.reset_command_pool()?;
+        cmd_buffer.begin()?;
+
+        // Put it into a layout where we can draw on it
+        cmd_buffer.cmd_resource_barrier(
+            &[],
+            &[RafxTextureBarrier::state_transition(
+                &swapchain_texture,
+                RafxResourceState::PRESENT,
+                RafxResourceState::RENDER_TARGET,
+            )],
+        )?;
+
+        cmd_buffer.cmd_begin_render_pass(
+            &[RafxColorRenderTargetBinding {
+                texture: &swapchain_texture,
+                load_op: RafxLoadOp::Clear,
+                store_op: RafxStoreOp::Store,
+                array_slice: None,
+                mip_slice: None,
+                clear_value: RafxColorClearValue([0.2, 0.2, 0.2, 1.0]),
+                resolve_target: None,
+                resolve_store_op: RafxStoreOp::DontCare,
+                resolve_mip_slice: None,
+                resolve_array_slice: None,
+            }],
+            None,
+        )?;
+
+        cmd_buffer.cmd_bind_pipeline(&ctx.pipeline)?;
+
+        cmd_buffer.cmd_end_render_pass()?;
+
+        cmd_buffer.cmd_resource_barrier(
+            &[],
+            &[RafxTextureBarrier::state_transition(
+                &swapchain_texture,
+                RafxResourceState::RENDER_TARGET,
+                RafxResourceState::PRESENT,
+            )],
+        )?;
+        cmd_buffer.end()?;
+
+        //
+        // Present the image
+        //
+        presentable_frame.present(&ctx.graphics_queue, &[&cmd_buffer])?;
+
         Ok(ControlFlow::Poll)
     }
 
@@ -133,8 +171,6 @@ impl Drop for DemoApp {
 }
 
 fn main() {
-    let args = DemoArgs::from_args();
-
     env_logger::Builder::from_default_env()
         .default_format()
         .filter_level(LevelFilter::Debug)
@@ -147,7 +183,7 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut app = DemoApp::init(&args, &window).unwrap();
+    let mut app = DemoApp::init(&window).unwrap();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -166,11 +202,7 @@ fn main() {
             }
         }
     });
-
-    run(); //.unwrap();
 }
-
-fn run() {}
 
 fn create_graphics_context(
     api: &RafxApi,
@@ -195,8 +227,10 @@ fn create_graphics_context(
 
     let mut command_pools = Vec::with_capacity(swapchain_helper.image_count());
     let mut command_buffers = Vec::with_capacity(swapchain_helper.image_count());
-    let mut vertex_buffers = Vec::with_capacity(swapchain_helper.image_count());
-    let mut uniform_buffers = Vec::with_capacity(swapchain_helper.image_count());
+    let mut vertex_buffers: Vec<Option<RafxBuffer>> =
+        Vec::with_capacity(swapchain_helper.image_count());
+    let mut uniform_buffers: Vec<Option<RafxBuffer>> =
+        Vec::with_capacity(swapchain_helper.image_count());
 
     #[rustfmt::skip]
         let vertex_data = [
@@ -214,20 +248,23 @@ fn create_graphics_context(
         let command_buffer = command_pool.create_command_buffer(&RafxCommandBufferDef {
             is_secondary: false,
         })?;
+        /*
+               let vertex_buffer = device_context
+                   .create_buffer(&RafxBufferDef::for_staging_vertex_buffer_data(&vertex_data))?;
+               vertex_buffer.copy_to_host_visible_buffer(&vertex_data)?;
 
-        let vertex_buffer = device_context
-            .create_buffer(&RafxBufferDef::for_staging_vertex_buffer_data(&vertex_data))?;
-        vertex_buffer.copy_to_host_visible_buffer(&vertex_data)?;
+               let uniform_buffer = device_context.create_buffer(
+                   &RafxBufferDef::for_staging_uniform_buffer_data(&uniform_data),
+               )?;
+               uniform_buffer.copy_to_host_visible_buffer(&uniform_data)?;
 
-        let uniform_buffer = device_context.create_buffer(
-            &RafxBufferDef::for_staging_uniform_buffer_data(&uniform_data),
-        )?;
-        uniform_buffer.copy_to_host_visible_buffer(&uniform_data)?;
-
+        */
         command_pools.push(command_pool);
         command_buffers.push(command_buffer);
-        vertex_buffers.push(vertex_buffer);
-        uniform_buffers.push(uniform_buffer);
+        //vertex_buffers.push(vertex_buffer);
+        //uniform_buffers.push(uniform_buffer);
+        vertex_buffers.push(None);
+        uniform_buffers.push(None);
     }
 
     //        let render_registry = RenderRegistryBuilder::default()
@@ -260,19 +297,22 @@ fn create_graphics_context(
             array_length: swapchain_helper.image_count(), // One per swapchain image.
         })?;
 
+    /*
     // Initialize them all at once here.. this can be done per-frame as well.
     for i in 0..swapchain_helper.image_count() {
         descriptor_set_array.update_descriptor_set(&[RafxDescriptorUpdate {
             array_index: i as u32,
             descriptor_key: RafxDescriptorKey::Name("color"),
             elements: RafxDescriptorElements {
-                buffers: Some(&[&uniform_buffers[i]]),
+                buffers: Some(&[&uniform_buffers[i].unwrap()]),
                 ..Default::default()
             },
             ..Default::default()
         }])?;
     }
 
+
+     */
     //
     // Now set up the pipeline. LOTS of things can be configured here, but aside from the vertex
     // layout most of it can be left as default.
@@ -321,6 +361,10 @@ fn create_graphics_context(
         root_signature,
         vertex_layout,
         pipeline,
+        command_pools,
+        command_buffers,
+        vertex_buffers,
+        uniform_buffers,
     })
 }
 

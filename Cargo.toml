@@ -3,6 +3,7 @@ members = [
     "clui",
     "clui-base",
     "clui-layout",
+    "clui-widgets",
     "demo"
 ]
 
@@ -20,8 +21,9 @@ split-debuginfo = "unpacked"
 
 [patch.crates-io]
 
-rafx = {path = "../rafx/rafx"}
-rafx-framework = {path = "../rafx/rafx-framework"}
+#rafx = {path = "../rafx/rafx"}
+#rafx-framework = {path = "../rafx/rafx-framework"}
+# these can be removed when rafx stabilises a bit
 rafx-api = {path = "../rafx/rafx-api"}
 rafx-base = {path = "../rafx/rafx-base"}
 #rafx-renderer = {path = "../rafx/rafx-renderer"}
@@ -31,4 +33,4 @@ rafx-base = {path = "../rafx/rafx-base"}
 ##rafx-framework = { git = "https://github.com/aclysma/rafx.git", rev="9107e9dbd0f75b1fdd369868217117df3e10940d"}
 ##rafx-assets = { git = "https://github.com/aclysma/rafx.git", rev="9107e9dbd0f75b1fdd369868217117df3e10940d"}
 ##rafx-renderer = { git = "https://github.com/aclysma/rafx.git", rev="9107e9dbd0f75b1fdd369868217117df3e10940d"}
-distill = { git = "https://github.com/amethyst/distill.git", rev = "852e48272ab3dad76c7490fce8df52461f94ebc0" }
+#distill = { git = "https://github.com/amethyst/distill.git", rev = "852e48272ab3dad76c7490fce8df52461f94ebc0" }

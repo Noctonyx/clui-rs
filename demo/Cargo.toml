@@ -11,13 +11,9 @@ publish = false
 clui-base = {path = "../clui-base"}
 clui-layout = {path = "../clui-layout"}
 rafx-api = { version = "0.0.14" ,features=["rafx-vulkan"]}
-#rafx-framework = { version = "0.0.14"}
-#rafx-renderer = { version = "0.0.14"}
 env_logger = "0.9.0"
 log = "0.4"
 winit = "0.26.0"
-structopt = "0.3"
-#bincode = "1.3"
 
 [features]
 rafx-vulkan = ["rafx-api/rafx-vulkan"]
