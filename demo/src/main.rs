@@ -153,6 +153,7 @@ impl DemoApp {
             &ctx.descriptor_set_array,
             presentable_frame.rotating_frame_index() as u32,
         )?;
+
         cmd_buffer.cmd_draw(3, 0)?;
 
         cmd_buffer.cmd_end_render_pass()?;
