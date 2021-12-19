@@ -182,7 +182,7 @@ impl DemoApp {
     fn process_input(
         &mut self,
         event: &winit::event::Event<()>,
-        window: &winit::window::Window,
+        _window: &winit::window::Window,
     ) -> bool {
         let ignore_event: bool = false;
 
@@ -406,14 +406,6 @@ fn create_shader(device_context: &RafxDeviceContext) -> Result<RafxShader, RafxE
     let frag_shader_module =
         device_context.create_shader_module(frag_shader_package.module_def())?;
 
-    //
-    // Create the shader object by combining the stages
-    //
-    // Hardcode the reflecton data required to interact with the shaders. This can be generated
-    // offline and loaded with the shader but this is not currently provided in rafx-api itself.
-    // (But see the shader pipeline in higher-level rafx crates for example usage, generated
-    // from spirv_cross)
-    //
     let color_shader_resource = RafxShaderResource {
         name: Some("color".to_string()),
         set_index: 0,
@@ -444,9 +436,6 @@ fn create_shader(device_context: &RafxDeviceContext) -> Result<RafxShader, RafxE
         },
     };
 
-    //
-    // Combine the shader stages into a single shader
-    //
     let shader =
         device_context.create_shader(vec![vert_shader_stage_def, frag_shader_stage_def])?;
 
