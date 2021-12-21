@@ -9,3 +9,5 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 slotmap = "1.0.6"
+
+[dev-dependencies]

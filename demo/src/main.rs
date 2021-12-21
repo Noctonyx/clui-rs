@@ -229,7 +229,8 @@ impl Drop for DemoApp {
 fn main() {
     env_logger::Builder::from_default_env()
         .default_format()
-        .filter_level(LevelFilter::Debug)
+        .filter_level(LevelFilter::Info)
+        .filter_module("rafx_api::backends::vulkan", LevelFilter::Info)
         .init();
 
     let event_loop = EventLoop::new();
