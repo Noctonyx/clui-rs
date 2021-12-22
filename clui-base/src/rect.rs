@@ -1,5 +1,4 @@
 use crate::{Point, Scalar, Size};
-use std::cmp::min;
 
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct Rect {
@@ -48,21 +47,21 @@ impl Rect {
             x: Scalar::max(r1.right(), r2.right()),
             y: Scalar::max(r1.bottom(), r2.bottom()),
         };
-        Rect::from_corners(p1, p2)
+        Self::from_corners(p1, p2)
     }
 
     pub fn move_to(&self, point: Point) -> Self {
-        Rect { point, ..*self }
+        Self { point, ..*self }
     }
 
-    pub fn center(self) -> Point {
+    pub fn center(&self) -> Point {
         Point {
             x: self.point.x + self.size.width / 2.0,
             y: self.point.y + self.size.height / 2.0,
         }
     }
 
-    pub fn contains_point(self, p: Point) -> bool {
+    pub fn contains_point(&self, p: Point) -> bool {
         let br = self.bottom_right();
 
         if p.x < self.point.x {
@@ -81,7 +80,7 @@ impl Rect {
         true
     }
 
-    pub fn bottom_right(self) -> Point {
+    pub fn bottom_right(&self) -> Point {
         Point {
             x: self.point.x + self.size.width,
             y: self.point.y + self.size.height,
@@ -120,14 +119,8 @@ mod tests {
     #[test]
     fn has_rect_create() {
         let r = Rect::from_values(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(r.point, Point { x: 1.0, y: 2.0 });
-        assert_eq!(
-            r.size,
-            Size {
-                width: 3.0,
-                height: 4.0
-            }
-        );
+        assert_eq!(r.point, Point::from_xy(1.0, 2.0));
+        assert_eq!(r.size, Size::from_wh(3.0, 4.0));
     }
 
     #[test]
@@ -143,7 +136,7 @@ mod tests {
     }
 
     #[test]
-    fn move_to_works() {
+    fn rect_move_to() {
         let r = Rect::from_values(5.0, 10.0, 10.0, 20.0);
         assert_eq!(r.center(), Point { x: 10.0, y: 20.0 });
         let r2 = r.move_to(Point { x: 20.0, y: 30.0 });
@@ -151,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn contains_point_works() {
+    fn rect_contains_point() {
         let r = Rect::from_pos_and_size(
             Point { x: 5.0, y: 10.0 },
             Size {
@@ -167,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn from_rects_works() {
+    fn rect_from_rects() {
         let r1 = Rect::from_values(5.0, 5.0, 15.0, 20.0);
         let r2 = Rect::from_values(24.0, 18.0, 5.0, 10.0);
 

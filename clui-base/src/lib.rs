@@ -3,8 +3,12 @@
 pub use self::rect::Rect;
 
 pub mod rect;
+mod size;
+mod ui_box;
+pub use crate::size::*;
 
 use crate::layer::CluiLayer;
+//use crate::size::Size;
 use slotmap::{new_key_type, SlotMap};
 
 pub type Scalar = f32;
@@ -19,12 +23,6 @@ impl Point {
     pub fn from_xy(x: Scalar, y: Scalar) -> Point {
         Point { x, y }
     }
-}
-
-#[derive(Copy, Clone, Default, PartialEq, Debug)]
-pub struct Size {
-    width: Scalar,
-    height: Scalar,
 }
 
 struct Clui<'a> {
@@ -86,11 +84,11 @@ mod layer;
 struct CluiWidget {}
 
 #[derive(Copy, Clone, Default, PartialOrd, PartialEq, Debug)]
-struct CluiColor {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+pub struct CluiColor {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 
 #[derive(Copy, Clone)]
@@ -129,7 +127,7 @@ struct DrawInstruction {
 #[cfg(test)]
 mod tests {
     use crate::layer::CluiUiRect;
-    use crate::{Clui, CluiColor, Rect};
+    use crate::{Clui, CluiColor, Rect, Size};
 
     #[test]
     fn layer_basics() {
